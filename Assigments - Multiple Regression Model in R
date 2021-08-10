@@ -1,10 +1,151 @@
 - 👋 Hi, I’m @anomprabulangga
 - 👀 I’m interested in Data Science
 - 🌱 I’m currently Data Science
-- 💞️ I’m looking to collaborate on 
+- 💞️ I’m looking to collaborate on Data-Project
 - 📫 How to reach me anomprabulangga@gmail.com
 
 <!---
-anomprabulangga/anomprabulangga is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
+Hello, this is my assigments about Multiple Regression Model in R from Dibimbing and my Mentor Pararawendy Indarjo.
+The data is about predicting housing price (medv) Boston City.
 --->
+
+# Author: Anom Prabulangga
+# Date: 2021-07-09
+
+#Import Data
+library(readr)
+Boston <- read_csv("Homework/Boston.csv")
+View(Boston)
+
+#Split Training
+library(caTools)
+set.seed(123)
+sample <- sample.split(Boston$medv, SplitRatio = .80)
+pre_train <- subset(Boston, sample == TRUE)
+sample_train <- sample.split(pre_train$medv, SplitRatio = .80)
+
+#Train-Validation Data
+train <- subset(pre_train, sample_train == TRUE)
+validation <- subset(pre_train, sample_train == FALSE)
+
+#Test Data
+test <- subset(Boston, sample == FALSE)
+
+#Correlation Study
+library(psych)
+pairs.panels(train, method = "pearson", hist.col = "#00AFBB", density = TRUE, ellipses = TRUE)
+
+#Drop Correlated Colums
+library(dplyr)
+drop_cols <- c('indus', 'nox', 'rm')
+
+train <- train %>% select(-drop_cols)
+validation <- validation %>% select(-drop_cols)
+test <- test %>% select(-drop_cols)
+
+# feature preprocessing
+# to ensure we handle categorical features
+x <- model.matrix(medv ~ ., train)[,-1]
+y <- train$medv
+
+# ridge regression
+# fit multiple ridge regression with different lambda
+# lambda = [0.01, 0.1, 1, 10]
+
+library(glmnet)
+a <- glmnet(x, y, alpha = 0, lambda = 0.01)
+coef(a)
+b <- glmnet(x, y, alpha = 0, lambda = 0.1)
+coef(b) #medv = 55.574 + -0.099 crim + 0.073 zn + 2.301 chas + 0.024 age + -1.039 dis + 0.310 rad + -0.016 tax + -1.090 ptratio + 0.007 black + -0.828 lstat  
+c <- glmnet(x, y, alpha = 0, lambda = 1)
+coef(c)
+d <- glmnet(x, y, alpha = 0, lambda = 10)
+coef(d)
+
+# comparison on validation data
+# to choose the best lambda
+# Make predictions on the validation data
+x_validation <- model.matrix(medv ~., validation)[,-1]
+y_validation <- validation$medv
+
+RMSE_a <- sqrt(mean((y_validation - predict(a, x_validation))^2))
+RMSE_a #5.462806
+
+RMSE_b <- sqrt(mean((y_validation - predict(b, x_validation))^2))
+RMSE_b #5.462397 #best #why the best? it's smallest
+
+RMSE_c <- sqrt(mean((y_validation - predict(c, x_validation))^2))
+RMSE_c #5.518641
+
+RMSE_d <- sqrt(mean((y_validation - predict(d, x_validation))^2))
+RMSE_d #6.401477
+
+# An increase of 1 point in Rad, while the other features are kept fixed, is associated with an increase of 0.310 point in medv
+
+# true evaluation on test data
+# using the best model --> RMSE_b
+x_test <- model.matrix(medv ~., test)[,-1]
+y_test <- test$medv
+
+# RMSE
+# The standard deviation of prediction errors is 5.903
+# i.e from regression line, the residuals mostly deviate between +- 5.903
+RMSE_ridge_best <- sqrt(mean((y_test - predict(b, x_test))^2))
+RMSE_ridge_best #5.903721
+
+# MAE
+# On average, our prediction deviates the true medv by 3.762
+MAE_ridge_best <- mean(abs(y_test - predict(b, x_test)))
+MAE_ridge_best #3.762853
+
+# MAPE
+# MAPE = 0.171 = 17.1%
+# Moreover, this 3.762 is equivalent to 17.1% deviation relative to the true medv
+MAPE_ridge_best <- mean(abs((predict(b, x_test) - y_test))/y_test)
+MAPE_ridge_best #0.1711952
+
+# LASSO
+lasso_a <- glmnet(x, y, alpha = 1, lambda = 0.01)
+coef(lasso_a)
+lasso_b <- glmnet(x, y, alpha = 1, lambda = 0.1)
+coef(lasso_b)
+lasso_c <- glmnet(x, y, alpha = 1, lambda = 1)
+coef(lasso_c)
+lasso_d <- glmnet(x, y, alpha = 1, lambda = 10)
+coef(lasso_d)
+
+# comparison on validation data
+# to choose the best lambda
+# Make predictions on the validation data
+
+RMSE_lasso_a <- sqrt(mean((y_validation - predict(lasso_a, x_validation))^2))
+RMSE_lasso_a #5.459027
+
+RMSE_lasso_b <- sqrt(mean((y_validation - predict(lasso_b, x_validation))^2))
+RMSE_lasso_b #5.451303 #Best #why the best? it's smallest
+
+RMSE_lasso_c <- sqrt(mean((y_validation - predict(lasso_c, x_validation))^2))
+RMSE_lasso_c #5.885698
+
+RMSE_lasso_d <- sqrt(mean((y_validation - predict(lasso_d, x_validation))^2))
+RMSE_lasso_d #9.371755
+
+# true evaluation on test data
+# using the best model --> RMSE_lasso_b
+
+# RMSE Lasso
+# the standard deviation of prediction errors is 5.963
+# i.e from regression line, the residuals mostly deviate between +- 5.963
+RMSE_lasso_best <- sqrt(mean((y_test - predict(lasso_b, x_test))^2))
+RMSE_lasso_best #5.96319
+
+# MAE Lasso
+# On average, our prediction deviates the true medv by 3.739 
+MAE_ridge_best <- mean(abs(y_test - predict(lasso_b, x_test)))
+MAE_ridge_best #3.739878
+
+# MAPE Lasso
+# MAPE = 0.169 = 16.9%
+# Moreover, this 3.739 is equivalent to 16.9% deviation relative to the true medv
+MAPE_ridge_best <- mean(abs((predict(lasso_b, x_test) - y_test))/y_test)
+MAPE_ridge_best #0.1693101
